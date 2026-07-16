@@ -1,5 +1,11 @@
 # DDNS-GO
 
+> 此 fork 增加 OpenWrt 原生 LuCI 模式。DNS Provider 引擎继续跟随上游，
+> 路由器管理端改为仅本机可访问的 Unix Socket，不再使用独立 Web 登录页。
+>
+> daemon 使用 `-noweb -openwrt-socket /var/run/ddns-go/admin.sock` 启动；
+> LuCI 通过同一程序的 `-openwrt-call status|config|set-config|run` 调用。
+
 [![GitHub release](https://img.shields.io/github/release/jeessy2/ddns-go.svg?logo=github&style=flat-square) ![GitHub release downloads](https://img.shields.io/github/downloads/jeessy2/ddns-go/total?logo=github)](https://github.com/jeessy2/ddns-go/releases/latest) [![Go version](https://img.shields.io/github/go-mod/go-version/jeessy2/ddns-go)](https://github.com/jeessy2/ddns-go/blob/master/go.mod) [![](https://goreportcard.com/badge/github.com/jeessy2/ddns-go/v6)](https://goreportcard.com/report/github.com/jeessy2/ddns-go/v6) [![](https://img.shields.io/docker/image-size/jeessy/ddns-go)](https://registry.hub.docker.com/r/jeessy/ddns-go) [![](https://img.shields.io/docker/pulls/jeessy/ddns-go)](https://registry.hub.docker.com/r/jeessy/ddns-go)
 
 中文 | [English](https://github.com/jeessy2/ddns-go/blob/master/README_EN.md)

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -180,7 +181,30 @@ func (conf *Config) SaveConfig() (err error) {
 	}
 
 	configFilePath := util.GetConfigFilePath()
-	err = os.WriteFile(configFilePath, byt, 0600)
+	configDir := filepath.Dir(configFilePath)
+	if err = os.MkdirAll(configDir, 0750); err != nil {
+		return err
+	}
+
+	tmp, err := os.CreateTemp(configDir, ".ddns-go-config-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+
+	if err = tmp.Chmod(0600); err == nil {
+		_, err = tmp.Write(byt)
+	}
+	if err == nil {
+		err = tmp.Sync()
+	}
+	if closeErr := tmp.Close(); err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		err = os.Rename(tmpPath, configFilePath)
+	}
 	if err != nil {
 		log.Println(err)
 		return

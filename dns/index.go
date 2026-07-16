@@ -1,6 +1,7 @@
 package dns
 
 import (
+	"sync"
 	"time"
 
 	"github.com/jeessy2/ddns-go/v6/config"
@@ -35,6 +36,7 @@ var (
 	}
 
 	Ipcache = [][2]util.IpCache{}
+	runMu   sync.Mutex
 )
 
 // RunTimer 定时运行
@@ -47,6 +49,9 @@ func RunTimer(delay time.Duration) {
 
 // RunOnce RunOnce
 func RunOnce() {
+	runMu.Lock()
+	defer runMu.Unlock()
+
 	conf, err := config.GetConfigCached()
 	if err != nil {
 		return

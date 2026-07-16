@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/jeessy2/ddns-go/v6/config"
 	"github.com/jeessy2/ddns-go/v6/dns"
+	"github.com/jeessy2/ddns-go/v6/openwrtapi"
 	"github.com/jeessy2/ddns-go/v6/util"
 	"github.com/jeessy2/ddns-go/v6/util/osutil"
 	"github.com/jeessy2/ddns-go/v6/util/update"
@@ -61,6 +63,10 @@ var newPassword = flag.String("resetPassword", "", "Reset password to the one en
 // 后台运行
 var daemonize = flag.Bool("d", false, "Run in background (daemon/detached)")
 
+// OpenWrt local management API. The Unix socket is not reachable from the network.
+var openwrtSocket = flag.String("openwrt-socket", "", "OpenWrt management Unix socket path")
+var openwrtCall = flag.String("openwrt-call", "", "Call OpenWrt API (status|config|set-config|run)")
+
 //go:embed static
 var staticEmbeddedFiles embed.FS
 
@@ -102,6 +108,22 @@ func main() {
 	if *configFilePath != "" {
 		absPath, _ := filepath.Abs(*configFilePath)
 		os.Setenv(util.ConfigFilePathENV, absPath)
+	}
+	if *openwrtCall != "" {
+		var body []byte
+		if *openwrtCall == "set-config" {
+			var err error
+			body, err = io.ReadAll(io.LimitReader(os.Stdin, 1<<20))
+			if err != nil {
+				log.Fatalf("Unable to read OpenWrt configuration: %v", err)
+			}
+		}
+		result, err := openwrtapi.Call(*openwrtSocket, *openwrtCall, body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Print(string(result))
+		return
 	}
 	// 重置密码
 	if *newPassword != "" {
@@ -159,7 +181,16 @@ func run() {
 	// 初始化语言
 	util.InitLogLang(conf.Lang)
 
-	if !*noWebService {
+	if *openwrtSocket != "" {
+		go func() {
+			if err := openwrtapi.NewServer(version).Serve(*openwrtSocket); err != nil {
+				log.Printf("OpenWrt management API failed: %v", err)
+				os.Exit(1)
+			}
+		}()
+	}
+
+	if !*noWebService && *openwrtSocket == "" {
 		go func() {
 			// 启动web服务
 			err := runWebServer()
