@@ -168,16 +168,19 @@ func mergeRedactedSecrets(next, current *config.Config) error {
 		}
 
 		match := -1
-		for j := range current.DnsConf {
-			if !used[j] && next.DnsConf[i].Name == current.DnsConf[j].Name &&
-				next.DnsConf[i].DNS.Name == current.DnsConf[j].DNS.Name {
-				match = j
-				break
-			}
-		}
-		if match < 0 && len(next.DnsConf) == len(current.DnsConf) &&
-			i < len(current.DnsConf) && next.DnsConf[i].DNS.Name == current.DnsConf[i].DNS.Name {
+		if len(next.DnsConf) == len(current.DnsConf) && i < len(current.DnsConf) &&
+			next.DnsConf[i].DNS.Name == current.DnsConf[i].DNS.Name {
 			match = i
+		} else {
+			for j := range current.DnsConf {
+				if !used[j] && next.DnsConf[i].Name == current.DnsConf[j].Name &&
+					next.DnsConf[i].DNS.Name == current.DnsConf[j].DNS.Name {
+					if match >= 0 {
+						return fmt.Errorf("provider identity %q is ambiguous; assign unique names before deleting entries", next.DnsConf[i].Name)
+					}
+					match = j
+				}
+			}
 		}
 		if match < 0 {
 			return fmt.Errorf("cannot safely match redacted credentials for provider %q", next.DnsConf[i].Name)

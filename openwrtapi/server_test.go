@@ -105,3 +105,20 @@ func TestMergeRedactedSecretsAfterDeletion(t *testing.T) {
 		t.Fatalf("secret = %q, want second-token", got)
 	}
 }
+
+func TestMergeRejectsAmbiguousProviderAfterDeletion(t *testing.T) {
+	current := config.Config{}
+	current.DnsConf = append(current.DnsConf,
+		config.DnsConfig{Name: "duplicate"},
+		config.DnsConfig{Name: "duplicate"},
+	)
+	for i := range current.DnsConf {
+		current.DnsConf[i].DNS.Name = "cloudflare"
+		current.DnsConf[i].DNS.Secret = "token"
+	}
+	next := config.Config{DnsConf: []config.DnsConfig{current.DnsConf[1]}}
+	next.DnsConf[0].DNS.Secret = redactedSecret
+	if err := mergeRedactedSecrets(&next, &current); err == nil {
+		t.Fatal("ambiguous provider identity was accepted")
+	}
+}
