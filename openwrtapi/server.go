@@ -93,7 +93,10 @@ func (s *Server) configuration(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		current, _ := config.GetConfigCached()
-		mergeRedactedSecrets(&next, &current)
+		if err := mergeRedactedSecrets(&next, &current); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
 		next.Username = ""
 		next.Password = ""
 		next.NotAllowWanAccess = true
@@ -155,18 +158,40 @@ func redactConfig(conf *config.Config) {
 	}
 }
 
-func mergeRedactedSecrets(next, current *config.Config) {
+func mergeRedactedSecrets(next, current *config.Config) error {
+	used := make([]bool, len(current.DnsConf))
 	for i := range next.DnsConf {
-		if i >= len(current.DnsConf) {
+		needsID := next.DnsConf[i].DNS.ID == redactedSecret
+		needsSecret := next.DnsConf[i].DNS.Secret == redactedSecret
+		if !needsID && !needsSecret {
 			continue
 		}
-		if next.DnsConf[i].DNS.ID == redactedSecret {
-			next.DnsConf[i].DNS.ID = current.DnsConf[i].DNS.ID
+
+		match := -1
+		for j := range current.DnsConf {
+			if !used[j] && next.DnsConf[i].Name == current.DnsConf[j].Name &&
+				next.DnsConf[i].DNS.Name == current.DnsConf[j].DNS.Name {
+				match = j
+				break
+			}
 		}
-		if next.DnsConf[i].DNS.Secret == redactedSecret {
-			next.DnsConf[i].DNS.Secret = current.DnsConf[i].DNS.Secret
+		if match < 0 && len(next.DnsConf) == len(current.DnsConf) &&
+			i < len(current.DnsConf) && next.DnsConf[i].DNS.Name == current.DnsConf[i].DNS.Name {
+			match = i
+		}
+		if match < 0 {
+			return fmt.Errorf("cannot safely match redacted credentials for provider %q", next.DnsConf[i].Name)
+		}
+
+		used[match] = true
+		if needsID {
+			next.DnsConf[i].DNS.ID = current.DnsConf[match].DNS.ID
+		}
+		if needsSecret {
+			next.DnsConf[i].DNS.Secret = current.DnsConf[match].DNS.Secret
 		}
 	}
+	return nil
 }
 
 func methodNotAllowed(w http.ResponseWriter) {

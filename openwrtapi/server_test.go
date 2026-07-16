@@ -84,3 +84,24 @@ func TestCallRejectsUnknownOperation(t *testing.T) {
 		t.Fatal("unknown operation was accepted")
 	}
 }
+
+func TestMergeRedactedSecretsAfterDeletion(t *testing.T) {
+	current := config.Config{}
+	current.DnsConf = append(current.DnsConf,
+		config.DnsConfig{Name: "first"},
+		config.DnsConfig{Name: "second"},
+	)
+	current.DnsConf[0].DNS.Name = "cloudflare"
+	current.DnsConf[0].DNS.Secret = "first-token"
+	current.DnsConf[1].DNS.Name = "cloudflare"
+	current.DnsConf[1].DNS.Secret = "second-token"
+
+	next := config.Config{DnsConf: []config.DnsConfig{current.DnsConf[1]}}
+	next.DnsConf[0].DNS.Secret = redactedSecret
+	if err := mergeRedactedSecrets(&next, &current); err != nil {
+		t.Fatal(err)
+	}
+	if got := next.DnsConf[0].DNS.Secret; got != "second-token" {
+		t.Fatalf("secret = %q, want second-token", got)
+	}
+}
