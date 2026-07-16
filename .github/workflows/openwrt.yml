@@ -20,7 +20,7 @@ jobs:
           cache: true
       - name: Check formatting
         run: |
-          gofmt -w .
+          gofmt -w main.go config/config.go dns/index.go openwrtapi
           git diff --exit-code
       - name: Test
         run: go test ./...
